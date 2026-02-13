@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { toHiragana } from "wanakana";
 import { useMemo, useState } from "react";
 
 type VerbType = "ichidan" | "godan" | "irr";
@@ -46,19 +47,6 @@ const iMap: Record<string, string> = {
   る: "り",
 };
 
-const englishAliases: Record<string, string[]> = {
-  "たべる": ["eat", "to eat", "eating"],
-  "みる": ["see", "to see", "watch", "to watch"],
-  "おきる": ["wake", "to wake", "wake up", "to wake up"],
-  "かく": ["write", "to write"],
-  "のむ": ["drink", "to drink"],
-  "はなす": ["speak", "to speak", "talk", "to talk"],
-  "よむ": ["read", "to read"],
-  "いく": ["go", "to go"],
-  "する": ["do", "to do"],
-  "くる": ["come", "to come"],
-};
-
 function randomItem<T>(arr: T[]) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -80,15 +68,6 @@ function conjugate(v: Verb, f: FormKey) {
 
 function createQuestion() {
   return { verb: randomItem(verbs), form: randomItem(forms) };
-}
-
-function shouldAutoConvertEnglish(input: string, verb: Verb) {
-  const normalized = input.trim().toLowerCase();
-  if (normalized.length < 2) return false;
-  if (!/^[a-z\s'-]+$/.test(normalized)) return false;
-
-  const aliases = englishAliases[verb.d] ?? [];
-  return aliases.some((alias) => alias === normalized);
 }
 
 export default function Home() {
@@ -125,14 +104,9 @@ export default function Home() {
   };
 
   const handleAnswerChange = (value: string) => {
-    if (shouldAutoConvertEnglish(value, question.verb)) {
-      setAnswer(expected);
-      setAutoNote(`Auto-converted English to Japanese: ${expected}`);
-      return;
-    }
-
-    setAnswer(value);
-    setAutoNote("");
+    const converted = toHiragana(value, { passRomaji: false });
+    setAnswer(converted);
+    setAutoNote(converted !== value ? "Romaji auto-converted to hiragana." : "");
   };
 
   return (
@@ -169,7 +143,7 @@ export default function Home() {
               value={answer}
               onChange={(e) => handleAnswerChange(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && check()}
-              placeholder="Type in hiragana or English (auto-convert)..."
+              placeholder="Type in hiragana or romaji (auto-convert)..."
               className="flex-1 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
             />
             <button onClick={check} className="rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-700">
