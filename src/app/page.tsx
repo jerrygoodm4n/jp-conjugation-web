@@ -59,17 +59,17 @@ const formsByKind: Record<ItemKind, FormKey[]> = {
 };
 
 const formLabels: Record<FormKey, string> = {
-  present: "Present",
-  past: "Past",
-  negative: "Negative",
-  pastNegative: "Past negative",
-  te: "Te-form",
-  potential: "Potential",
-  adverb: "Adverb form",
-  presentCopula: "Copula present (〜です)",
-  pastCopula: "Copula past (〜でした)",
-  negativeCopula: "Copula negative (〜じゃないです)",
-  pastNegativeCopula: "Copula past negative (〜じゃなかったです)",
+  present: "Present ('do' / 'is')",
+  past: "Past ('did' / 'was')",
+  negative: "Negative ('don’t' / 'is not')",
+  pastNegative: "Past negative ('didn’t' / 'was not')",
+  te: "Te-form ('and…' / connective form)",
+  potential: "Potential ('can' / 'is possible to')",
+  adverb: "Adverb form ('-ly', e.g. quietly / quickly)",
+  presentCopula: "Copula present ('is / am / are')",
+  pastCopula: "Copula past ('was / were')",
+  negativeCopula: "Copula negative ('is not / am not / are not')",
+  pastNegativeCopula: "Copula past negative ('was not / were not')",
 };
 
 const iRowMap: Record<string, string> = {
