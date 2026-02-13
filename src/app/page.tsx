@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { bind } from "wanakana";
+import { bind, unbind } from "wanakana";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type VerbType = "ichidan" | "godan" | "irr";
@@ -76,6 +76,7 @@ export default function Home() {
   const [correct, setCorrect] = useState<number>(0);
   const [total, setTotal] = useState<number>(0);
   const [feedback, setFeedback] = useState<null | { ok: boolean; text: string }>(null);
+  const [jpInputMode, setJpInputMode] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const accuracy = useMemo(() => (total ? Math.round((correct / total) * 100) : 0), [correct, total]);
@@ -86,15 +87,20 @@ export default function Home() {
     const input = inputRef.current;
     if (!input) return;
 
-    bind(input);
+    if (jpInputMode) {
+      bind(input, { IMEMode: true });
+    } else {
+      unbind(input);
+    }
 
     const sync = () => setAnswer(input.value);
     input.addEventListener("input", sync);
 
     return () => {
       input.removeEventListener("input", sync);
+      unbind(input);
     };
-  }, []);
+  }, [jpInputMode]);
 
   const nextQuestion = () => {
     setQuestion(createQuestion());
@@ -129,8 +135,16 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-700">
-            Score <span className="font-semibold">{correct}</span> / {total} · Accuracy <span className="font-semibold">{accuracy}%</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setJpInputMode((v) => !v)}
+              className={`rounded-xl px-3 py-2 text-xs font-semibold ${jpInputMode ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-700"}`}
+            >
+              JP Input {jpInputMode ? "ON" : "OFF"}
+            </button>
+            <div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-700">
+              Score <span className="font-semibold">{correct}</span> / {total} · Accuracy <span className="font-semibold">{accuracy}%</span>
+            </div>
           </div>
         </header>
 
@@ -145,13 +159,19 @@ export default function Home() {
             {question.verb.m} · {question.verb.t}
           </p>
           <p className="mt-3 text-sm font-semibold text-red-600">{labels[question.form]}</p>
+          <p className="mt-1 text-xs text-slate-500">JP Input uses IME-style conversion (fixes edge cases like typing n + a → な).</p>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input
               ref={inputRef}
               defaultValue={answer}
               onKeyDown={(e) => e.key === "Enter" && check()}
-              placeholder="Type in hiragana or romaji (live convert)..."
+              placeholder={jpInputMode ? "Type in romaji/hiragana (live JP convert)..." : "Type answer..."}
+              lang="ja"
+              inputMode="text"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               className="flex-1 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
             />
             <button onClick={check} className="rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-700">
