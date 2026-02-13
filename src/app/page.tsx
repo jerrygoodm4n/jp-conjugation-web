@@ -211,7 +211,6 @@ export default function Home() {
 
   const expected = conjugate(question.item, question.form);
   const conjugationTypeLabel = displayConjugationType(question.form);
-  const hasAnswered = feedback !== null;
   const accuracy = useMemo(() => (total ? Math.round((correct / total) * 100) : 0), [correct, total]);
 
   const nextQuestion = () => {
