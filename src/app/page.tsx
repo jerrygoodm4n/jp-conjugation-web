@@ -4,38 +4,75 @@ import Image from "next/image";
 import { toHiragana, toKana } from "wanakana";
 import { useEffect, useMemo, useState } from "react";
 
-type VerbType = "ichidan" | "godan" | "irr";
-type FormKey = "masu" | "masen" | "mashita" | "masendeshita";
+type ItemKind = "verb" | "i-adjective" | "na-adjective" | "noun";
+type VerbClass = "ichidan" | "godan" | "irregular";
 
-type Verb = {
-  d: string;
-  m: string;
-  t: VerbType;
+type Lexeme = {
+  base: string;
+  meaning: string;
+  kind: ItemKind;
+  verbClass?: VerbClass;
 };
 
-const verbs: Verb[] = [
-  { d: "たべる", m: "to eat", t: "ichidan" },
-  { d: "みる", m: "to see", t: "ichidan" },
-  { d: "おきる", m: "to wake", t: "ichidan" },
-  { d: "かく", m: "to write", t: "godan" },
-  { d: "のむ", m: "to drink", t: "godan" },
-  { d: "はなす", m: "to speak", t: "godan" },
-  { d: "よむ", m: "to read", t: "godan" },
-  { d: "いく", m: "to go", t: "godan" },
-  { d: "する", m: "to do", t: "irr" },
-  { d: "くる", m: "to come", t: "irr" },
+type FormKey =
+  | "present"
+  | "past"
+  | "negative"
+  | "pastNegative"
+  | "te"
+  | "potential"
+  | "adverb"
+  | "presentCopula"
+  | "pastCopula"
+  | "negativeCopula"
+  | "pastNegativeCopula";
+
+const lexemes: Lexeme[] = [
+  { base: "たべる", meaning: "eat", kind: "verb", verbClass: "ichidan" },
+  { base: "みる", meaning: "see", kind: "verb", verbClass: "ichidan" },
+  { base: "のむ", meaning: "drink", kind: "verb", verbClass: "godan" },
+  { base: "はなす", meaning: "speak", kind: "verb", verbClass: "godan" },
+  { base: "かく", meaning: "write", kind: "verb", verbClass: "godan" },
+  { base: "いく", meaning: "go", kind: "verb", verbClass: "godan" },
+  { base: "する", meaning: "do", kind: "verb", verbClass: "irregular" },
+  { base: "くる", meaning: "come", kind: "verb", verbClass: "irregular" },
+
+  { base: "おおきい", meaning: "big", kind: "i-adjective" },
+  { base: "ちいさい", meaning: "small", kind: "i-adjective" },
+  { base: "おもしろい", meaning: "interesting", kind: "i-adjective" },
+  { base: "さむい", meaning: "cold", kind: "i-adjective" },
+
+  { base: "しずか", meaning: "quiet", kind: "na-adjective" },
+  { base: "べんり", meaning: "convenient", kind: "na-adjective" },
+  { base: "げんき", meaning: "healthy/energetic", kind: "na-adjective" },
+
+  { base: "がくせい", meaning: "student", kind: "noun" },
+  { base: "せんせい", meaning: "teacher", kind: "noun" },
+  { base: "にほんじん", meaning: "Japanese person", kind: "noun" },
 ];
 
-const forms: FormKey[] = ["masu", "masen", "mashita", "masendeshita"];
-
-const labels: Record<FormKey, string> = {
-  masu: "Polite present (〜ます)",
-  masen: "Polite negative (〜ません)",
-  mashita: "Polite past (〜ました)",
-  masendeshita: "Polite past negative (〜ませんでした)",
+const formsByKind: Record<ItemKind, FormKey[]> = {
+  verb: ["present", "past", "negative", "pastNegative", "te", "potential"],
+  "i-adjective": ["present", "past", "negative", "pastNegative", "adverb"],
+  "na-adjective": ["presentCopula", "pastCopula", "negativeCopula", "pastNegativeCopula", "adverb"],
+  noun: ["presentCopula", "pastCopula", "negativeCopula", "pastNegativeCopula"],
 };
 
-const iMap: Record<string, string> = {
+const formLabels: Record<FormKey, string> = {
+  present: "Present",
+  past: "Past",
+  negative: "Negative",
+  pastNegative: "Past negative",
+  te: "Te-form",
+  potential: "Potential",
+  adverb: "Adverb form",
+  presentCopula: "Copula present (〜です)",
+  pastCopula: "Copula past (〜でした)",
+  negativeCopula: "Copula negative (〜じゃないです)",
+  pastNegativeCopula: "Copula past negative (〜じゃなかったです)",
+};
+
+const iRowMap: Record<string, string> = {
   う: "い",
   く: "き",
   ぐ: "ぎ",
@@ -47,43 +84,106 @@ const iMap: Record<string, string> = {
   る: "り",
 };
 
+const eRowMap: Record<string, string> = {
+  う: "え",
+  く: "け",
+  ぐ: "げ",
+  す: "せ",
+  つ: "て",
+  ぬ: "ね",
+  ぶ: "べ",
+  む: "め",
+  る: "れ",
+};
+
 function randomItem<T>(arr: T[]) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function stem(v: Verb) {
-  if (v.t === "irr") return v.d === "する" ? "し" : "き";
-  if (v.t === "ichidan") return v.d.slice(0, -1);
-  const last = v.d.slice(-1);
-  return v.d.slice(0, -1) + iMap[last];
+function verbMasuStem(base: string, cls: VerbClass) {
+  if (cls === "irregular") return base === "する" ? "し" : "き";
+  if (cls === "ichidan") return base.slice(0, -1);
+  const last = base.slice(-1);
+  return base.slice(0, -1) + iRowMap[last];
 }
 
-function conjugate(v: Verb, f: FormKey) {
-  const s = stem(v);
-  if (f === "masu") return `${s}ます`;
-  if (f === "masen") return `${s}ません`;
-  if (f === "mashita") return `${s}ました`;
-  return `${s}ませんでした`;
+function verbConjugate(v: Lexeme, form: FormKey) {
+  const base = v.base;
+  const cls = v.verbClass!;
+
+  if (form === "present") return `${verbMasuStem(base, cls)}ます`;
+  if (form === "past") return `${verbMasuStem(base, cls)}ました`;
+  if (form === "negative") return `${verbMasuStem(base, cls)}ません`;
+  if (form === "pastNegative") return `${verbMasuStem(base, cls)}ませんでした`;
+
+  if (form === "te") {
+    if (cls === "ichidan") return `${base.slice(0, -1)}て`;
+    if (cls === "irregular") return base === "する" ? "して" : "きて";
+    const last = base.slice(-1);
+    const root = base.slice(0, -1);
+    if (base === "いく") return "いって";
+    if (["う", "つ", "る"].includes(last)) return `${root}って`;
+    if (["む", "ぶ", "ぬ"].includes(last)) return `${root}んで`;
+    if (last === "く") return `${root}いて`;
+    if (last === "ぐ") return `${root}いで`;
+    return `${root}して`;
+  }
+
+  if (form === "potential") {
+    if (cls === "ichidan") return `${base.slice(0, -1)}られます`;
+    if (cls === "irregular") return base === "する" ? "できます" : "こられます";
+    const last = base.slice(-1);
+    return `${base.slice(0, -1)}${eRowMap[last]}ます`;
+  }
+
+  return base;
+}
+
+function iAdjConjugate(base: string, form: FormKey) {
+  const stem = base.slice(0, -1);
+  if (form === "present") return `${base}です`;
+  if (form === "past") return `${stem}かったです`;
+  if (form === "negative") return `${stem}くないです`;
+  if (form === "pastNegative") return `${stem}くなかったです`;
+  if (form === "adverb") return `${stem}く`;
+  return base;
+}
+
+function naAdjOrNounConjugate(base: string, form: FormKey) {
+  if (form === "presentCopula") return `${base}です`;
+  if (form === "pastCopula") return `${base}でした`;
+  if (form === "negativeCopula") return `${base}じゃないです`;
+  if (form === "pastNegativeCopula") return `${base}じゃなかったです`;
+  if (form === "adverb") return `${base}に`;
+  return base;
+}
+
+function conjugate(lexeme: Lexeme, form: FormKey) {
+  if (lexeme.kind === "verb") return verbConjugate(lexeme, form);
+  if (lexeme.kind === "i-adjective") return iAdjConjugate(lexeme.base, form);
+  return naAdjOrNounConjugate(lexeme.base, form);
 }
 
 function createQuestion() {
-  return { verb: randomItem(verbs), form: randomItem(forms) };
+  const item = randomItem(lexemes);
+  const form = randomItem(formsByKind[item.kind]);
+  return { item, form };
 }
 
 export default function Home() {
-  const [question, setQuestion] = useState({ verb: verbs[0], form: forms[0] as FormKey });
+  const [question, setQuestion] = useState<{ item: Lexeme; form: FormKey }>({ item: lexemes[0], form: "present" });
   const [answer, setAnswer] = useState("");
-  const [correct, setCorrect] = useState<number>(0);
-  const [total, setTotal] = useState<number>(0);
+  const [correct, setCorrect] = useState(0);
+  const [total, setTotal] = useState(0);
   const [feedback, setFeedback] = useState<null | { ok: boolean; text: string }>(null);
   const [jpInputMode, setJpInputMode] = useState(true);
-
-  const accuracy = useMemo(() => (total ? Math.round((correct / total) * 100) : 0), [correct, total]);
-  const expected = conjugate(question.verb, question.form);
 
   useEffect(() => {
     setQuestion(createQuestion());
   }, []);
+
+  const expected = conjugate(question.item, question.form);
+  const accuracy = useMemo(() => (total ? Math.round((correct / total) * 100) : 0), [correct, total]);
 
   const nextQuestion = () => {
     setQuestion(createQuestion());
@@ -102,18 +202,9 @@ export default function Home() {
     if (normalizedInput === normalizedExpected) {
       setCorrect((c) => c + 1);
       setFeedback({ ok: true, text: "Correct! 🎉" });
-      return;
+    } else {
+      setFeedback({ ok: false, text: `Not quite. Correct answer: ${expected}` });
     }
-
-    setFeedback({ ok: false, text: `Not quite. Correct answer: ${expected}` });
-  };
-
-  const onAnswerChange = (value: string) => {
-    if (jpInputMode) {
-      setAnswer(toHiragana(value, { IMEMode: true }));
-      return;
-    }
-    setAnswer(value);
   };
 
   return (
@@ -124,7 +215,7 @@ export default function Home() {
             <Image src="/logo.svg" alt="Katsuyo Coach logo" width={44} height={44} />
             <div>
               <h1 className="text-2xl font-bold text-slate-900">Katsuyo Coach 🇯🇵</h1>
-              <p className="text-sm text-slate-600">Practice polite Japanese verb forms fast</p>
+              <p className="text-sm text-slate-600">Practice common forms across verbs, i-adjectives, na-adjectives, and nouns</p>
             </div>
           </div>
 
@@ -146,16 +237,18 @@ export default function Home() {
         </div>
 
         <article className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Conjugate this verb</p>
-          <h2 className="mt-1 text-3xl font-bold text-slate-900">{question.verb.d}</h2>
-          <p className="mt-1 text-sm text-slate-600">{question.verb.m} · {question.verb.t}</p>
-          <p className="mt-3 text-sm font-semibold text-red-600">{labels[question.form]}</p>
-          <p className="mt-1 text-xs text-slate-500">JP Input uses IME-style conversion and handles edge cases like n+a → な.</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Conjugate this word</p>
+          <h2 className="mt-1 text-3xl font-bold text-slate-900">{question.item.base}</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            {question.item.meaning} · {question.item.kind}
+            {question.item.kind === "verb" ? ` (${question.item.verbClass})` : ""}
+          </p>
+          <p className="mt-3 text-sm font-semibold text-red-600">{formLabels[question.form]}</p>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input
               value={answer}
-              onChange={(e) => onAnswerChange(e.target.value)}
+              onChange={(e) => setAnswer(jpInputMode ? toHiragana(e.target.value, { IMEMode: true }) : e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && check()}
               placeholder={jpInputMode ? "Type in romaji/hiragana (live JP convert)..." : "Type answer..."}
               lang="ja"
