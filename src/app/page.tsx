@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { bind, unbind } from "wanakana";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { toHiragana, toKana } from "wanakana";
+import { useEffect, useMemo, useState } from "react";
 
 type VerbType = "ichidan" | "godan" | "irr";
 type FormKey = "masu" | "masen" | "mashita" | "masendeshita";
@@ -71,56 +71,49 @@ function createQuestion() {
 }
 
 export default function Home() {
-  const [question, setQuestion] = useState(createQuestion());
+  const [question, setQuestion] = useState({ verb: verbs[0], form: forms[0] as FormKey });
   const [answer, setAnswer] = useState("");
   const [correct, setCorrect] = useState<number>(0);
   const [total, setTotal] = useState<number>(0);
   const [feedback, setFeedback] = useState<null | { ok: boolean; text: string }>(null);
   const [jpInputMode, setJpInputMode] = useState(true);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const accuracy = useMemo(() => (total ? Math.round((correct / total) * 100) : 0), [correct, total]);
-
   const expected = conjugate(question.verb, question.form);
 
   useEffect(() => {
-    const input = inputRef.current;
-    if (!input) return;
-
-    if (jpInputMode) {
-      bind(input, { IMEMode: true });
-    } else {
-      unbind(input);
-    }
-
-    const sync = () => setAnswer(input.value);
-    input.addEventListener("input", sync);
-
-    return () => {
-      input.removeEventListener("input", sync);
-      unbind(input);
-    };
-  }, [jpInputMode]);
+    setQuestion(createQuestion());
+  }, []);
 
   const nextQuestion = () => {
     setQuestion(createQuestion());
     setAnswer("");
     setFeedback(null);
-    if (inputRef.current) inputRef.current.value = "";
   };
 
   const check = () => {
-    const normalized = answer.trim();
-    if (!normalized) return;
+    const raw = answer.trim();
+    if (!raw) return;
+
+    const normalizedInput = toKana(raw);
+    const normalizedExpected = toKana(expected);
 
     setTotal((t) => t + 1);
-    if (normalized === expected) {
+    if (normalizedInput === normalizedExpected) {
       setCorrect((c) => c + 1);
       setFeedback({ ok: true, text: "Correct! 🎉" });
       return;
     }
 
     setFeedback({ ok: false, text: `Not quite. Correct answer: ${expected}` });
+  };
+
+  const onAnswerChange = (value: string) => {
+    if (jpInputMode) {
+      setAnswer(toHiragana(value, { IMEMode: true }));
+      return;
+    }
+    setAnswer(value);
   };
 
   return (
@@ -155,16 +148,14 @@ export default function Home() {
         <article className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Conjugate this verb</p>
           <h2 className="mt-1 text-3xl font-bold text-slate-900">{question.verb.d}</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            {question.verb.m} · {question.verb.t}
-          </p>
+          <p className="mt-1 text-sm text-slate-600">{question.verb.m} · {question.verb.t}</p>
           <p className="mt-3 text-sm font-semibold text-red-600">{labels[question.form]}</p>
-          <p className="mt-1 text-xs text-slate-500">JP Input uses IME-style conversion (fixes edge cases like typing n + a → な).</p>
+          <p className="mt-1 text-xs text-slate-500">JP Input uses IME-style conversion and handles edge cases like n+a → な.</p>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input
-              ref={inputRef}
-              defaultValue={answer}
+              value={answer}
+              onChange={(e) => onAnswerChange(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && check()}
               placeholder={jpInputMode ? "Type in romaji/hiragana (live JP convert)..." : "Type answer..."}
               lang="ja"
@@ -174,12 +165,8 @@ export default function Home() {
               spellCheck={false}
               className="flex-1 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
             />
-            <button onClick={check} className="rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-700">
-              Check
-            </button>
-            <button onClick={nextQuestion} className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50">
-              Next
-            </button>
+            <button onClick={check} className="rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-700">Check</button>
+            <button onClick={nextQuestion} className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50">Next</button>
           </div>
 
           {feedback && (
