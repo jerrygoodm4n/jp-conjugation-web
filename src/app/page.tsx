@@ -46,6 +46,19 @@ const iMap: Record<string, string> = {
   る: "り",
 };
 
+const englishAliases: Record<string, string[]> = {
+  "たべる": ["eat", "to eat", "eating"],
+  "みる": ["see", "to see", "watch", "to watch"],
+  "おきる": ["wake", "to wake", "wake up", "to wake up"],
+  "かく": ["write", "to write"],
+  "のむ": ["drink", "to drink"],
+  "はなす": ["speak", "to speak", "talk", "to talk"],
+  "よむ": ["read", "to read"],
+  "いく": ["go", "to go"],
+  "する": ["do", "to do"],
+  "くる": ["come", "to come"],
+};
+
 function randomItem<T>(arr: T[]) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -69,12 +82,22 @@ function createQuestion() {
   return { verb: randomItem(verbs), form: randomItem(forms) };
 }
 
+function shouldAutoConvertEnglish(input: string, verb: Verb) {
+  const normalized = input.trim().toLowerCase();
+  if (normalized.length < 2) return false;
+  if (!/^[a-z\s'-]+$/.test(normalized)) return false;
+
+  const aliases = englishAliases[verb.d] ?? [];
+  return aliases.some((alias) => alias === normalized);
+}
+
 export default function Home() {
   const [question, setQuestion] = useState(createQuestion());
   const [answer, setAnswer] = useState("");
   const [correct, setCorrect] = useState<number>(0);
   const [total, setTotal] = useState<number>(0);
   const [feedback, setFeedback] = useState<null | { ok: boolean; text: string }>(null);
+  const [autoNote, setAutoNote] = useState<string>("");
 
   const accuracy = useMemo(() => (total ? Math.round((correct / total) * 100) : 0), [correct, total]);
 
@@ -84,6 +107,7 @@ export default function Home() {
     setQuestion(createQuestion());
     setAnswer("");
     setFeedback(null);
+    setAutoNote("");
   };
 
   const check = () => {
@@ -98,6 +122,17 @@ export default function Home() {
     }
 
     setFeedback({ ok: false, text: `Not quite. Correct answer: ${expected}` });
+  };
+
+  const handleAnswerChange = (value: string) => {
+    if (shouldAutoConvertEnglish(value, question.verb)) {
+      setAnswer(expected);
+      setAutoNote(`Auto-converted English to Japanese: ${expected}`);
+      return;
+    }
+
+    setAnswer(value);
+    setAutoNote("");
   };
 
   return (
@@ -132,9 +167,9 @@ export default function Home() {
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input
               value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
+              onChange={(e) => handleAnswerChange(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && check()}
-              placeholder="Type in hiragana..."
+              placeholder="Type in hiragana or English (auto-convert)..."
               className="flex-1 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
             />
             <button onClick={check} className="rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-700">
@@ -144,6 +179,8 @@ export default function Home() {
               Next
             </button>
           </div>
+
+          {autoNote && <div className="mt-4 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700">{autoNote}</div>}
 
           {feedback && (
             <div className={`mt-4 rounded-xl px-3 py-2 text-sm ${feedback.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
