@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { toHiragana, toKana } from "wanakana";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ItemKind = "verb" | "i-adjective" | "na-adjective" | "noun";
 type VerbClass = "ichidan" | "godan" | "irregular";
@@ -202,19 +202,23 @@ export default function Home() {
   const [total, setTotal] = useState(0);
   const [feedback, setFeedback] = useState<null | { ok: boolean; text: string }>(null);
   const [jpInputMode, setJpInputMode] = useState(true);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setQuestion(createQuestion());
+    inputRef.current?.focus();
   }, []);
 
   const expected = conjugate(question.item, question.form);
   const conjugationTypeLabel = displayConjugationType(question.form);
+  const hasAnswered = feedback !== null;
   const accuracy = useMemo(() => (total ? Math.round((correct / total) * 100) : 0), [correct, total]);
 
   const nextQuestion = () => {
     setQuestion(createQuestion());
     setAnswer("");
     setFeedback(null);
+    requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const check = () => {
@@ -231,6 +235,8 @@ export default function Home() {
     } else {
       setFeedback({ ok: false, text: `Not quite. Correct answer: ${expected} (Press Enter for next)` });
     }
+
+    requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const handleEnter = () => {
@@ -281,6 +287,7 @@ export default function Home() {
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input
+              ref={inputRef}
               value={answer}
               onChange={(e) => setAnswer(jpInputMode ? toHiragana(e.target.value, { IMEMode: true }) : e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleEnter()}
@@ -292,13 +299,41 @@ export default function Home() {
               spellCheck={false}
               className="flex-1 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
             />
-            <button onClick={check} className="rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-700">Check</button>
-            <button onClick={nextQuestion} className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50">Next</button>
+          </div>
+
+          <div className="mt-3 min-h-10 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            {feedback ? (
+              <>
+                Correct answer: <span className="font-semibold">{expected}</span>
+              </>
+            ) : (
+              <span className="opacity-0">Correct answer placeholder</span>
+            )}
+          </div>
+
+          <div className="mt-3 flex gap-2">
+            {!feedback ? (
+              <button
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={check}
+                className="rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-700"
+              >
+                Check
+              </button>
+            ) : (
+              <button
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={nextQuestion}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Next
+              </button>
+            )}
           </div>
 
           {feedback && (
             <div className={`mt-4 rounded-xl px-3 py-2 text-sm ${feedback.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
-              {feedback.text}
+              {feedback.ok ? "Correct! 🎉" : "Not quite — try the next one."}
             </div>
           )}
         </article>
