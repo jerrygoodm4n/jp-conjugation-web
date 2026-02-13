@@ -74,19 +74,28 @@ const formLabels: Record<FormKey, string> = {
   pastNegativeCopula: "Copula past negative ('was not / were not')",
 };
 
-const formRegister: Record<FormKey, Register> = {
+const formRegister: Partial<Record<FormKey, Register>> = {
   present: "formal",
   past: "formal",
   negative: "formal",
   pastNegative: "formal",
-  te: "casual",
   potential: "formal",
-  adverb: "casual",
   presentCopula: "formal",
   pastCopula: "formal",
   negativeCopula: "formal",
   pastNegativeCopula: "formal",
 };
+
+function titleCase(text: string) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function displayConjugationType(form: FormKey) {
+  const register = formRegister[form];
+  const base = formLabels[form].split(" (")[0];
+  if (!register) return base;
+  return `${titleCase(register)} ${base.toLowerCase()}`;
+}
 
 const iRowMap: Record<string, string> = {
   う: "い",
@@ -199,7 +208,7 @@ export default function Home() {
   }, []);
 
   const expected = conjugate(question.item, question.form);
-  const expectedRegister = formRegister[question.form];
+  const conjugationTypeLabel = displayConjugationType(question.form);
   const accuracy = useMemo(() => (total ? Math.round((correct / total) * 100) : 0), [correct, total]);
 
   const nextQuestion = () => {
@@ -269,11 +278,8 @@ export default function Home() {
             {question.item.kind === "verb" ? ` (${question.item.verbClass})` : ""}
           </p>
           <p className="mt-3 text-sm font-semibold text-red-600">{formLabels[question.form]}</p>
-          <p className="mt-1 text-sm">
-            Expected register:{" "}
-            <span className={`font-semibold ${expectedRegister === "formal" ? "text-indigo-700" : "text-emerald-700"}`}>
-              {expectedRegister === "formal" ? "Formal" : "Casual"}
-            </span>
+          <p className="mt-1 text-sm text-slate-700">
+            Conjugation type: <span className="font-semibold">{conjugationTypeLabel}</span>
           </p>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
