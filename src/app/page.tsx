@@ -300,22 +300,25 @@ export default function Home() {
             />
           </div>
 
-          <div className="mt-3 min-h-10 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          <div className="mt-3 min-h-12 rounded-lg bg-transparent px-1 py-2 text-sm text-slate-700">
             {feedback ? (
               <>
+                <span className={`font-semibold ${feedback.ok ? "text-emerald-700" : "text-red-700"}`}>
+                  {feedback.ok ? "Correct! 🎉" : "Not quite."}
+                </span>{" "}
                 Correct answer: <span className="font-semibold">{expected}</span>
               </>
             ) : (
-              <span className="opacity-0">Correct answer placeholder</span>
+              <span className="opacity-0">Feedback placeholder to keep spacing stable.</span>
             )}
           </div>
 
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3">
             {!feedback ? (
               <button
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={check}
-                className="rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-700"
+                className="w-full rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-700"
               >
                 Check
               </button>
@@ -323,18 +326,12 @@ export default function Home() {
               <button
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={nextQuestion}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Next
               </button>
             )}
           </div>
-
-          {feedback && (
-            <div className={`mt-4 rounded-xl px-3 py-2 text-sm ${feedback.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
-              {feedback.ok ? "Correct! 🎉" : "Not quite — try the next one."}
-            </div>
-          )}
         </article>
       </section>
     </main>
