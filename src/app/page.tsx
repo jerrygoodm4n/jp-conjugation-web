@@ -201,10 +201,18 @@ export default function Home() {
     setTotal((t) => t + 1);
     if (normalizedInput === normalizedExpected) {
       setCorrect((c) => c + 1);
-      setFeedback({ ok: true, text: "Correct! 🎉" });
+      setFeedback({ ok: true, text: "Correct! 🎉 (Press Enter for next)" });
     } else {
-      setFeedback({ ok: false, text: `Not quite. Correct answer: ${expected}` });
+      setFeedback({ ok: false, text: `Not quite. Correct answer: ${expected} (Press Enter for next)` });
     }
+  };
+
+  const handleEnter = () => {
+    if (feedback) {
+      nextQuestion();
+      return;
+    }
+    check();
   };
 
   return (
@@ -249,7 +257,7 @@ export default function Home() {
             <input
               value={answer}
               onChange={(e) => setAnswer(jpInputMode ? toHiragana(e.target.value, { IMEMode: true }) : e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && check()}
+              onKeyDown={(e) => e.key === "Enter" && handleEnter()}
               placeholder={jpInputMode ? "Type in romaji/hiragana (live JP convert)..." : "Type answer..."}
               lang="ja"
               inputMode="text"
