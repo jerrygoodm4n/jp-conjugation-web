@@ -92,9 +92,9 @@ function titleCase(text: string) {
 
 function displayConjugationType(form: FormKey) {
   const register = formRegister[form];
-  const base = formLabels[form].split(" (")[0];
+  const base = formLabels[form];
   if (!register) return base;
-  return `${titleCase(register)} ${base.toLowerCase()}`;
+  return `${titleCase(register)} ${base.charAt(0).toLowerCase()}${base.slice(1)}`;
 }
 
 const iRowMap: Record<string, string> = {
@@ -277,10 +277,7 @@ export default function Home() {
             {question.item.meaning} · {question.item.kind}
             {question.item.kind === "verb" ? ` (${question.item.verbClass})` : ""}
           </p>
-          <p className="mt-3 text-sm font-semibold text-red-600">{formLabels[question.form]}</p>
-          <p className="mt-1 text-sm text-slate-700">
-            Conjugation type: <span className="font-semibold">{conjugationTypeLabel}</span>
-          </p>
+          <p className="mt-3 text-sm font-semibold text-red-600">{conjugationTypeLabel}</p>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input
