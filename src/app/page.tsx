@@ -8,7 +8,8 @@ type ItemKind = "verb" | "i-adjective" | "na-adjective" | "noun";
 type VerbClass = "ichidan" | "godan" | "irregular";
 
 type Lexeme = {
-  base: string;
+  kana: string;
+  kanji: string;
   meaning: string;
   kind: ItemKind;
   verbClass?: VerbClass;
@@ -30,27 +31,27 @@ type FormKey =
 type Register = "formal" | "casual";
 
 const lexemes: Lexeme[] = [
-  { base: "たべる", meaning: "eat", kind: "verb", verbClass: "ichidan" },
-  { base: "みる", meaning: "see", kind: "verb", verbClass: "ichidan" },
-  { base: "のむ", meaning: "drink", kind: "verb", verbClass: "godan" },
-  { base: "はなす", meaning: "speak", kind: "verb", verbClass: "godan" },
-  { base: "かく", meaning: "write", kind: "verb", verbClass: "godan" },
-  { base: "いく", meaning: "go", kind: "verb", verbClass: "godan" },
-  { base: "する", meaning: "do", kind: "verb", verbClass: "irregular" },
-  { base: "くる", meaning: "come", kind: "verb", verbClass: "irregular" },
+  { kana: "たべる", kanji: "食べる", meaning: "eat", kind: "verb", verbClass: "ichidan" },
+  { kana: "みる", kanji: "見る", meaning: "see", kind: "verb", verbClass: "ichidan" },
+  { kana: "のむ", kanji: "飲む", meaning: "drink", kind: "verb", verbClass: "godan" },
+  { kana: "はなす", kanji: "話す", meaning: "speak", kind: "verb", verbClass: "godan" },
+  { kana: "かく", kanji: "書く", meaning: "write", kind: "verb", verbClass: "godan" },
+  { kana: "いく", kanji: "行く", meaning: "go", kind: "verb", verbClass: "godan" },
+  { kana: "する", kanji: "する", meaning: "do", kind: "verb", verbClass: "irregular" },
+  { kana: "くる", kanji: "来る", meaning: "come", kind: "verb", verbClass: "irregular" },
 
-  { base: "おおきい", meaning: "big", kind: "i-adjective" },
-  { base: "ちいさい", meaning: "small", kind: "i-adjective" },
-  { base: "おもしろい", meaning: "interesting", kind: "i-adjective" },
-  { base: "さむい", meaning: "cold", kind: "i-adjective" },
+  { kana: "おおきい", kanji: "大きい", meaning: "big", kind: "i-adjective" },
+  { kana: "ちいさい", kanji: "小さい", meaning: "small", kind: "i-adjective" },
+  { kana: "おもしろい", kanji: "面白い", meaning: "interesting", kind: "i-adjective" },
+  { kana: "さむい", kanji: "寒い", meaning: "cold", kind: "i-adjective" },
 
-  { base: "しずか", meaning: "quiet", kind: "na-adjective" },
-  { base: "べんり", meaning: "convenient", kind: "na-adjective" },
-  { base: "げんき", meaning: "healthy/energetic", kind: "na-adjective" },
+  { kana: "しずか", kanji: "静か", meaning: "quiet", kind: "na-adjective" },
+  { kana: "べんり", kanji: "便利", meaning: "convenient", kind: "na-adjective" },
+  { kana: "げんき", kanji: "元気", meaning: "healthy/energetic", kind: "na-adjective" },
 
-  { base: "がくせい", meaning: "student", kind: "noun" },
-  { base: "せんせい", meaning: "teacher", kind: "noun" },
-  { base: "にほんじん", meaning: "Japanese person", kind: "noun" },
+  { kana: "がくせい", kanji: "学生", meaning: "student", kind: "noun" },
+  { kana: "せんせい", kanji: "先生", meaning: "teacher", kind: "noun" },
+  { kana: "にほんじん", kanji: "日本人", meaning: "Japanese person", kind: "noun" },
 ];
 
 const formsByKind: Record<ItemKind, FormKey[]> = {
@@ -86,17 +87,6 @@ const formRegister: Partial<Record<FormKey, Register>> = {
   pastNegativeCopula: "formal",
 };
 
-function titleCase(text: string) {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-function displayConjugationType(form: FormKey) {
-  const register = formRegister[form];
-  const base = formLabels[form];
-  if (!register) return base;
-  return `${titleCase(register)} ${base.charAt(0).toLowerCase()}${base.slice(1)}`;
-}
-
 const iRowMap: Record<string, string> = {
   う: "い",
   く: "き",
@@ -125,6 +115,17 @@ function randomItem<T>(arr: T[]) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function titleCase(text: string) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function displayConjugationType(form: FormKey) {
+  const register = formRegister[form];
+  const base = formLabels[form];
+  if (!register) return base;
+  return `${titleCase(register)} ${base.charAt(0).toLowerCase()}${base.slice(1)}`;
+}
+
 function verbMasuStem(base: string, cls: VerbClass) {
   if (cls === "irregular") return base === "する" ? "し" : "き";
   if (cls === "ichidan") return base.slice(0, -1);
@@ -132,8 +133,8 @@ function verbMasuStem(base: string, cls: VerbClass) {
   return base.slice(0, -1) + iRowMap[last];
 }
 
-function verbConjugate(v: Lexeme, form: FormKey) {
-  const base = v.base;
+function verbConjugate(v: Lexeme, form: FormKey, useKanji: boolean) {
+  const base = useKanji ? v.kanji : v.kana;
   const cls = v.verbClass!;
 
   if (form === "present") return `${verbMasuStem(base, cls)}ます`;
@@ -143,10 +144,10 @@ function verbConjugate(v: Lexeme, form: FormKey) {
 
   if (form === "te") {
     if (cls === "ichidan") return `${base.slice(0, -1)}て`;
-    if (cls === "irregular") return base === "する" ? "して" : "きて";
+    if (cls === "irregular") return v.kana === "する" ? "して" : useKanji ? "来て" : "きて";
     const last = base.slice(-1);
     const root = base.slice(0, -1);
-    if (base === "いく") return "いって";
+    if (v.kana === "いく") return useKanji ? "行って" : "いって";
     if (["う", "つ", "る"].includes(last)) return `${root}って`;
     if (["む", "ぶ", "ぬ"].includes(last)) return `${root}んで`;
     if (last === "く") return `${root}いて`;
@@ -156,7 +157,7 @@ function verbConjugate(v: Lexeme, form: FormKey) {
 
   if (form === "potential") {
     if (cls === "ichidan") return `${base.slice(0, -1)}られます`;
-    if (cls === "irregular") return base === "する" ? "できます" : "こられます";
+    if (cls === "irregular") return v.kana === "する" ? "できます" : useKanji ? "来られます" : "こられます";
     const last = base.slice(-1);
     return `${base.slice(0, -1)}${eRowMap[last]}ます`;
   }
@@ -164,7 +165,8 @@ function verbConjugate(v: Lexeme, form: FormKey) {
   return base;
 }
 
-function iAdjConjugate(base: string, form: FormKey) {
+function iAdjConjugate(v: Lexeme, form: FormKey, useKanji: boolean) {
+  const base = useKanji ? v.kanji : v.kana;
   const stem = base.slice(0, -1);
   if (form === "present") return `${base}です`;
   if (form === "past") return `${stem}かったです`;
@@ -174,7 +176,8 @@ function iAdjConjugate(base: string, form: FormKey) {
   return base;
 }
 
-function naAdjOrNounConjugate(base: string, form: FormKey) {
+function naAdjOrNounConjugate(v: Lexeme, form: FormKey, useKanji: boolean) {
+  const base = useKanji ? v.kanji : v.kana;
   if (form === "presentCopula") return `${base}です`;
   if (form === "pastCopula") return `${base}でした`;
   if (form === "negativeCopula") return `${base}じゃないです`;
@@ -183,10 +186,10 @@ function naAdjOrNounConjugate(base: string, form: FormKey) {
   return base;
 }
 
-function conjugate(lexeme: Lexeme, form: FormKey) {
-  if (lexeme.kind === "verb") return verbConjugate(lexeme, form);
-  if (lexeme.kind === "i-adjective") return iAdjConjugate(lexeme.base, form);
-  return naAdjOrNounConjugate(lexeme.base, form);
+function conjugate(lexeme: Lexeme, form: FormKey, useKanji: boolean) {
+  if (lexeme.kind === "verb") return verbConjugate(lexeme, form, useKanji);
+  if (lexeme.kind === "i-adjective") return iAdjConjugate(lexeme, form, useKanji);
+  return naAdjOrNounConjugate(lexeme, form, useKanji);
 }
 
 function createQuestion() {
@@ -206,10 +209,11 @@ export default function Home() {
 
   useEffect(() => {
     setQuestion(createQuestion());
-    inputRef.current?.focus();
   }, []);
 
-  const expected = conjugate(question.item, question.form);
+  const expectedKana = conjugate(question.item, question.form, false);
+  const expectedKanji = conjugate(question.item, question.form, true);
+  const expectedDisplay = expectedKanji === expectedKana ? expectedKana : `${expectedKanji}（${expectedKana}）`;
   const conjugationTypeLabel = displayConjugationType(question.form);
   const accuracy = useMemo(() => (total ? Math.round((correct / total) * 100) : 0), [correct, total]);
 
@@ -225,14 +229,17 @@ export default function Home() {
     if (!raw) return;
 
     const normalizedInput = toKana(raw);
-    const normalizedExpected = toKana(expected);
+    const normalizedKana = toKana(expectedKana);
+    const normalizedKanji = toKana(expectedKanji);
+
+    const isCorrect = normalizedInput === normalizedKana || normalizedInput === normalizedKanji;
 
     setTotal((t) => t + 1);
-    if (normalizedInput === normalizedExpected) {
+    if (isCorrect) {
       setCorrect((c) => c + 1);
       setFeedback({ ok: true, text: "Correct! 🎉 (Press Enter for next)" });
     } else {
-      setFeedback({ ok: false, text: `Not quite. Correct answer: ${expected} (Press Enter for next)` });
+      setFeedback({ ok: false, text: "Not quite. (Press Enter for next)" });
     }
 
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -277,26 +284,32 @@ export default function Home() {
 
         <article className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Conjugate this word</p>
-          <h2 className="mt-1 text-3xl font-bold text-slate-900">{question.item.base}</h2>
+          <h2 className="mt-1 text-3xl font-bold text-slate-900">
+            <ruby>
+              {question.item.kanji}
+              <rt className="text-sm text-slate-500">{question.item.kana}</rt>
+            </ruby>
+          </h2>
           <p className="mt-1 text-sm text-slate-600">
             {question.item.meaning} · {question.item.kind}
             {question.item.kind === "verb" ? ` (${question.item.verbClass})` : ""}
           </p>
           <p className="mt-3 text-sm font-semibold text-red-600">{conjugationTypeLabel}</p>
 
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-4 flex flex-col gap-2">
             <input
               ref={inputRef}
               value={answer}
               onChange={(e) => setAnswer(jpInputMode ? toHiragana(e.target.value, { IMEMode: true }) : e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleEnter()}
-              placeholder={jpInputMode ? "Type in romaji/hiragana (live JP convert)..." : "Type answer..."}
+              placeholder={jpInputMode ? "Type in romaji / kana / kanji..." : "Type answer..."}
               lang="ja"
               inputMode="text"
+              enterKeyHint={feedback ? "next" : "done"}
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
-              className="flex-1 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
             />
           </div>
 
@@ -306,7 +319,7 @@ export default function Home() {
                 <span className={`font-semibold ${feedback.ok ? "text-emerald-700" : "text-red-700"}`}>
                   {feedback.ok ? "Correct! 🎉" : "Not quite."}
                 </span>{" "}
-                Correct answer: <span className="font-semibold">{expected}</span>
+                Correct answer: <span className="font-semibold">{expectedDisplay}</span>
               </>
             ) : (
               <span className="opacity-0">Feedback placeholder to keep spacing stable.</span>
@@ -315,19 +328,11 @@ export default function Home() {
 
           <div className="mt-3">
             {!feedback ? (
-              <button
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={check}
-                className="w-full rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-700"
-              >
+              <button onMouseDown={(e) => e.preventDefault()} onClick={check} className="w-full rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-700">
                 Check
               </button>
             ) : (
-              <button
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={nextQuestion}
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50"
-              >
+              <button onMouseDown={(e) => e.preventDefault()} onClick={nextQuestion} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50">
                 Next
               </button>
             )}
