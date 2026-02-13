@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { toHiragana } from "wanakana";
-import { useMemo, useState } from "react";
+import { bind } from "wanakana";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type VerbType = "ichidan" | "godan" | "irr";
 type FormKey = "masu" | "masen" | "mashita" | "masendeshita";
@@ -76,17 +76,31 @@ export default function Home() {
   const [correct, setCorrect] = useState<number>(0);
   const [total, setTotal] = useState<number>(0);
   const [feedback, setFeedback] = useState<null | { ok: boolean; text: string }>(null);
-  const [autoNote, setAutoNote] = useState<string>("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const accuracy = useMemo(() => (total ? Math.round((correct / total) * 100) : 0), [correct, total]);
 
   const expected = conjugate(question.verb, question.form);
 
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+
+    bind(input);
+
+    const sync = () => setAnswer(input.value);
+    input.addEventListener("input", sync);
+
+    return () => {
+      input.removeEventListener("input", sync);
+    };
+  }, []);
+
   const nextQuestion = () => {
     setQuestion(createQuestion());
     setAnswer("");
     setFeedback(null);
-    setAutoNote("");
+    if (inputRef.current) inputRef.current.value = "";
   };
 
   const check = () => {
@@ -101,12 +115,6 @@ export default function Home() {
     }
 
     setFeedback({ ok: false, text: `Not quite. Correct answer: ${expected}` });
-  };
-
-  const handleAnswerChange = (value: string) => {
-    const converted = toHiragana(value, { passRomaji: false });
-    setAnswer(converted);
-    setAutoNote(converted !== value ? "Romaji auto-converted to hiragana." : "");
   };
 
   return (
@@ -140,10 +148,10 @@ export default function Home() {
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input
-              value={answer}
-              onChange={(e) => handleAnswerChange(e.target.value)}
+              ref={inputRef}
+              defaultValue={answer}
               onKeyDown={(e) => e.key === "Enter" && check()}
-              placeholder="Type in hiragana or romaji (auto-convert)..."
+              placeholder="Type in hiragana or romaji (live convert)..."
               className="flex-1 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
             />
             <button onClick={check} className="rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-700">
@@ -153,8 +161,6 @@ export default function Home() {
               Next
             </button>
           </div>
-
-          {autoNote && <div className="mt-4 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700">{autoNote}</div>}
 
           {feedback && (
             <div className={`mt-4 rounded-xl px-3 py-2 text-sm ${feedback.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
