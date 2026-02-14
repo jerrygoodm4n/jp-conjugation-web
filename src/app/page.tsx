@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import { toHiragana, toKana } from "wanakana";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type ItemKind = "verb" | "i-adjective" | "na-adjective" | "noun";
 type VerbClass = "ichidan" | "godan" | "irregular";
+type Register = "formal" | "casual";
 
 type Lexeme = {
   kana: string;
@@ -28,8 +28,6 @@ type FormKey =
   | "negativeCopula"
   | "pastNegativeCopula";
 
-type Register = "formal" | "casual";
-
 const lexemes: Lexeme[] = [
   { kana: "たべる", kanji: "食べる", meaning: "eat", kind: "verb", verbClass: "ichidan" },
   { kana: "みる", kanji: "見る", meaning: "see", kind: "verb", verbClass: "ichidan" },
@@ -39,16 +37,13 @@ const lexemes: Lexeme[] = [
   { kana: "いく", kanji: "行く", meaning: "go", kind: "verb", verbClass: "godan" },
   { kana: "する", kanji: "する", meaning: "do", kind: "verb", verbClass: "irregular" },
   { kana: "くる", kanji: "来る", meaning: "come", kind: "verb", verbClass: "irregular" },
-
   { kana: "おおきい", kanji: "大きい", meaning: "big", kind: "i-adjective" },
   { kana: "ちいさい", kanji: "小さい", meaning: "small", kind: "i-adjective" },
   { kana: "おもしろい", kanji: "面白い", meaning: "interesting", kind: "i-adjective" },
   { kana: "さむい", kanji: "寒い", meaning: "cold", kind: "i-adjective" },
-
   { kana: "しずか", kanji: "静か", meaning: "quiet", kind: "na-adjective" },
   { kana: "べんり", kanji: "便利", meaning: "convenient", kind: "na-adjective" },
   { kana: "げんき", kanji: "元気", meaning: "healthy/energetic", kind: "na-adjective" },
-
   { kana: "がくせい", kanji: "学生", meaning: "student", kind: "noun" },
   { kana: "せんせい", kanji: "先生", meaning: "teacher", kind: "noun" },
   { kana: "にほんじん", kanji: "日本人", meaning: "Japanese person", kind: "noun" },
@@ -87,29 +82,8 @@ const formRegister: Partial<Record<FormKey, Register>> = {
   pastNegativeCopula: "formal",
 };
 
-const iRowMap: Record<string, string> = {
-  う: "い",
-  く: "き",
-  ぐ: "ぎ",
-  す: "し",
-  つ: "ち",
-  ぬ: "に",
-  ぶ: "び",
-  む: "み",
-  る: "り",
-};
-
-const eRowMap: Record<string, string> = {
-  う: "え",
-  く: "け",
-  ぐ: "げ",
-  す: "せ",
-  つ: "て",
-  ぬ: "ね",
-  ぶ: "べ",
-  む: "め",
-  る: "れ",
-};
+const iRowMap: Record<string, string> = { う: "い", く: "き", ぐ: "ぎ", す: "し", つ: "ち", ぬ: "に", ぶ: "び", む: "み", る: "り" };
+const eRowMap: Record<string, string> = { う: "え", く: "け", ぐ: "げ", す: "せ", つ: "て", ぬ: "ね", ぶ: "べ", む: "め", る: "れ" };
 
 function randomItem<T>(arr: T[]) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -129,8 +103,7 @@ function displayConjugationType(form: FormKey) {
 function verbMasuStem(base: string, cls: VerbClass) {
   if (cls === "irregular") return base === "する" ? "し" : "き";
   if (cls === "ichidan") return base.slice(0, -1);
-  const last = base.slice(-1);
-  return base.slice(0, -1) + iRowMap[last];
+  return base.slice(0, -1) + iRowMap[base.slice(-1)];
 }
 
 function verbConjugate(v: Lexeme, form: FormKey, useKanji: boolean) {
@@ -158,8 +131,7 @@ function verbConjugate(v: Lexeme, form: FormKey, useKanji: boolean) {
   if (form === "potential") {
     if (cls === "ichidan") return `${base.slice(0, -1)}られます`;
     if (cls === "irregular") return v.kana === "する" ? "できます" : useKanji ? "来られます" : "こられます";
-    const last = base.slice(-1);
-    return `${base.slice(0, -1)}${eRowMap[last]}ます`;
+    return `${base.slice(0, -1)}${eRowMap[base.slice(-1)]}ます`;
   }
 
   return base;
@@ -192,24 +164,29 @@ function conjugate(lexeme: Lexeme, form: FormKey, useKanji: boolean) {
   return naAdjOrNounConjugate(lexeme, form, useKanji);
 }
 
-function createQuestion() {
-  const item = randomItem(lexemes);
+function createQuestion(enabledKinds: ItemKind[]) {
+  const pool = lexemes.filter((l) => enabledKinds.includes(l.kind));
+  const item = randomItem(pool.length > 0 ? pool : lexemes);
   const form = randomItem(formsByKind[item.kind]);
   return { item, form };
 }
 
+const allKinds: ItemKind[] = ["verb", "i-adjective", "na-adjective", "noun"];
+
 export default function Home() {
+  const [enabledKinds, setEnabledKinds] = useState<ItemKind[]>(allKinds);
   const [question, setQuestion] = useState<{ item: Lexeme; form: FormKey }>({ item: lexemes[0], form: "present" });
   const [answer, setAnswer] = useState("");
   const [correct, setCorrect] = useState(0);
   const [total, setTotal] = useState(0);
-  const [feedback, setFeedback] = useState<null | { ok: boolean; text: string }>(null);
+  const [streak, setStreak] = useState(0);
+  const [feedback, setFeedback] = useState<null | { ok: boolean }>(null);
   const [jpInputMode, setJpInputMode] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setQuestion(createQuestion());
-  }, []);
+    setQuestion(createQuestion(enabledKinds));
+  }, [enabledKinds]);
 
   const expectedKana = conjugate(question.item, question.form, false);
   const expectedKanji = conjugate(question.item, question.form, true);
@@ -218,7 +195,7 @@ export default function Home() {
   const accuracy = useMemo(() => (total ? Math.round((correct / total) * 100) : 0), [correct, total]);
 
   const nextQuestion = () => {
-    setQuestion(createQuestion());
+    setQuestion(createQuestion(enabledKinds));
     setAnswer("");
     setFeedback(null);
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -226,20 +203,18 @@ export default function Home() {
 
   const check = () => {
     const raw = answer.trim();
-    if (!raw) return;
+    if (!raw || feedback) return;
 
     const normalizedInput = toKana(raw);
-    const normalizedKana = toKana(expectedKana);
-    const normalizedKanji = toKana(expectedKanji);
-
-    const isCorrect = normalizedInput === normalizedKana || normalizedInput === normalizedKanji;
+    const isCorrect = normalizedInput === toKana(expectedKana) || normalizedInput === toKana(expectedKanji);
 
     setTotal((t) => t + 1);
+    setFeedback({ ok: isCorrect });
     if (isCorrect) {
       setCorrect((c) => c + 1);
-      setFeedback({ ok: true, text: "Correct! 🎉 (Press Enter for next)" });
+      setStreak((s) => s + 1);
     } else {
-      setFeedback({ ok: false, text: "Not quite. (Press Enter for next)" });
+      setStreak(0);
     }
 
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -254,37 +229,51 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen px-4 py-10">
-      <section className="mx-auto w-full max-w-3xl rounded-3xl border border-white/70 bg-white/85 p-6 shadow-xl backdrop-blur-md sm:p-8">
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Image src="/logo.svg" alt="Katsuyo Coach logo" width={44} height={44} />
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">Katsuyo Coach 🇯🇵</h1>
-              <p className="text-sm text-slate-600">Practice common forms across verbs, i-adjectives, na-adjectives, and nouns</p>
-            </div>
+    <main className="min-h-screen px-4 py-8">
+      <section className="mx-auto w-full max-w-5xl rounded-2xl border border-white/70 bg-white/90 p-6 shadow-lg">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Practice</h1>
+            <p className="text-sm text-slate-600">Train with mixed word types and practical conjugation forms.</p>
           </div>
-
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 text-sm">
             <button
               onClick={() => setJpInputMode((v) => !v)}
-              className={`rounded-xl px-3 py-2 text-xs font-semibold ${jpInputMode ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-700"}`}
+              className={`rounded-xl px-3 py-2 font-semibold ${jpInputMode ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-700"}`}
             >
               JP Input {jpInputMode ? "ON" : "OFF"}
             </button>
-            <div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-700">
-              Score <span className="font-semibold">{correct}</span> / {total} · Accuracy <span className="font-semibold">{accuracy}%</span>
-            </div>
+            <div className="rounded-xl bg-slate-100 px-3 py-2 text-slate-700">Score {correct}/{total}</div>
+            <div className="rounded-xl bg-amber-100 px-3 py-2 text-amber-800">Streak {streak}</div>
+            <div className="rounded-xl bg-slate-100 px-3 py-2 text-slate-700">Accuracy {accuracy}%</div>
           </div>
-        </header>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {allKinds.map((k) => {
+            const on = enabledKinds.includes(k);
+            return (
+              <button
+                key={k}
+                onClick={() => {
+                  const next = on ? enabledKinds.filter((x) => x !== k) : [...enabledKinds, k];
+                  if (next.length) setEnabledKinds(next);
+                }}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium ${on ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}
+              >
+                {k}
+              </button>
+            );
+          })}
+        </div>
 
         <div className="mt-5 h-2 rounded-full bg-slate-200">
-          <div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-500 transition-all" style={{ width: `${accuracy}%` }} />
+          <div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-500" style={{ width: `${accuracy}%` }} />
         </div>
 
         <article className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Conjugate this word</p>
-          <h2 className="mt-1 text-3xl font-bold text-slate-900">
+          <h2 className="mt-2 text-3xl font-bold text-slate-900">
             <ruby>
               {question.item.kanji}
               <rt className="text-sm text-slate-500">{question.item.kana}</rt>
@@ -296,7 +285,7 @@ export default function Home() {
           </p>
           <p className="mt-3 text-sm font-semibold text-red-600">{conjugationTypeLabel}</p>
 
-          <div className="mt-4 flex flex-col gap-2">
+          <div className="mt-4">
             <input
               ref={inputRef}
               value={answer}
@@ -322,11 +311,11 @@ export default function Home() {
                 Correct answer: <span className="font-semibold">{expectedDisplay}</span>
               </>
             ) : (
-              <span className="opacity-0">Feedback placeholder to keep spacing stable.</span>
+              <span className="opacity-0">placeholder</span>
             )}
           </div>
 
-          <div className="mt-3">
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {!feedback ? (
               <button onMouseDown={(e) => e.preventDefault()} onClick={check} className="w-full rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-700">
                 Check
@@ -336,6 +325,9 @@ export default function Home() {
                 Next
               </button>
             )}
+            <button onMouseDown={(e) => e.preventDefault()} onClick={nextQuestion} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50">
+              Skip
+            </button>
           </div>
         </article>
       </section>
